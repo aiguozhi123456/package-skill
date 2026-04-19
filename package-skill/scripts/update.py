@@ -6,7 +6,19 @@ import re
 import sys
 from pathlib import Path
 
-SKILLS_DIR = Path(__file__).resolve().parents[3]  # skills/ directory (repo root → skills/)
+#!/usr/bin/env python3
+"""Update pack.md — scan a package's sub-skills and refresh the registry."""
+
+import argparse
+import os
+import re
+import sys
+from pathlib import Path
+
+# Resolve skills directory from env or default to this script's parent
+SKILLS_DIR = Path(os.environ.get("SKILLS_DIR", str(Path(__file__).resolve().parents[2]))).resolve()
+
+SAFE_NAME_RE = re.compile(r'^[a-zA-Z0-9_-]+$')
 
 
 def parse_frontmatter(text: str) -> dict:
@@ -60,7 +72,13 @@ def write_pack_md(package_dir: Path, subs: list[dict]):
 
 def update(package_name: str):
     """Scan and update pack.md for a package."""
-    package_dir = SKILLS_DIR / package_name
+    if not SAFE_NAME_RE.match(package_name):
+        print(f"Error: invalid package name '{package_name}'", file=sys.stderr)
+        sys.exit(1)
+    package_dir = (SKILLS_DIR / package_name).resolve()
+    if not str(package_dir).startswith(str(SKILLS_DIR)):
+        print(f"Error: path traversal detected", file=sys.stderr)
+        sys.exit(1)
     if not package_dir.exists():
         print(f"Error: package '{package_name}' not found", file=sys.stderr)
         sys.exit(1)

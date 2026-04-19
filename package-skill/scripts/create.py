@@ -2,12 +2,34 @@
 """Skill Packager — create, add, remove sub-skills in a package. Use update.py for scan/pack.md."""
 
 import argparse
+import os
 import re
 import shutil
 import sys
 from pathlib import Path
 
-SKILLS_DIR = Path(__file__).resolve().parents[3]  # skills/ directory (repo root → skills/)
+# Resolve skills directory from env or default to this script's parent
+SKILLS_DIR = Path(os.environ.get("SKILLS_DIR", str(Path(__file__).resolve().parents[2]))).resolve()
+
+# Allowed name pattern: alphanumeric, hyphens, underscores only
+SAFE_NAME_RE = re.compile(r'^[a-zA-Z0-9_-]+$')
+
+
+def validate_name(name: str, label: str = "name") -> str:
+    """Validate a skill/package name to prevent path traversal."""
+    if not SAFE_NAME_RE.match(name):
+        print(f"Error: invalid {label} '{name}' — only alphanumeric, hyphens, and underscores allowed", file=sys.stderr)
+        sys.exit(1)
+    return name
+
+
+def safe_path(base: Path, name: str) -> Path:
+    """Join and resolve a path, ensuring it stays within base."""
+    resolved = (base / name).resolve()
+    if not str(resolved).startswith(str(base.resolve())):
+        print(f"Error: path traversal detected for '{name}'", file=sys.stderr)
+        sys.exit(1)
+    return resolved
 
 
 def parse_frontmatter(text: str) -> dict:
@@ -81,10 +103,10 @@ This is a skill package bundling {len(subs)} sub-skills: {sub_names}.
 
 def cmd_create(args):
     """Create a new package from existing skills."""
-    package_name = args.package
-    skill_names = args.skills
+    package_name = validate_name(args.package, "package name")
+    skill_names = [validate_name(n, "skill name") for n in args.skills]
 
-    package_dir = SKILLS_DIR / package_name
+    package_dir = safe_path(SKILLS_DIR, package_name)
     if package_dir.exists():
         print(f"Error: {package_dir} already exists", file=sys.stderr)
         sys.exit(1)
@@ -92,7 +114,7 @@ def cmd_create(args):
     # Validate source skills exist
     source_paths = []
     for name in skill_names:
-        src = SKILLS_DIR / name
+        src = safe_path(SKILLS_DIR, name)
         if not src.exists():
             print(f"Error: skill '{name}' not found at {src}", file=sys.stderr)
             sys.exit(1)
@@ -105,7 +127,7 @@ def cmd_create(args):
     # Copy skills into sub/
     subs = []
     for src, name in zip(source_paths, skill_names):
-        dest = package_dir / "sub" / name
+        dest = safe_path(package_dir, f"sub/{name}")
         shutil.copytree(src, dest)
         sname, sdesc = read_skill_description(dest)
         subs.append({"name": sname, "description": sdesc, "dir": name})
@@ -130,7 +152,8 @@ def cmd_create(args):
 
 def cmd_scan(args):
     """Scan sub-skills and update pack.md."""
-    package_dir = SKILLS_DIR / args.package
+    package_name = validate_name(args.package, "package name")
+    package_dir = safe_path(SKILLS_DIR, package_name)
     if not package_dir.exists():
         print(f"Error: package '{args.package}' not found", file=sys.stderr)
         sys.exit(1)
@@ -144,8 +167,10 @@ def cmd_scan(args):
 
 def cmd_add(args):
     """Add a skill to an existing package."""
-    package_dir = SKILLS_DIR / args.package
-    src = SKILLS_DIR / args.skill
+    package_name = validate_name(args.package, "package name")
+    skill_name = validate_name(args.skill, "skill name")
+    package_dir = safe_path(SKILLS_DIR, package_name)
+    src = safe_path(SKILLS_DIR, skill_name)
 
     if not package_dir.exists():
         print(f"Error: package '{args.package}' not found", file=sys.stderr)
@@ -154,17 +179,17 @@ def cmd_add(args):
         print(f"Error: skill '{args.skill}' not found", file=sys.stderr)
         sys.exit(1)
 
-    dest = package_dir / "sub" / args.skill
+    dest = safe_path(package_dir, f"sub/{skill_name}")
     if dest.exists():
-        print(f"Error: sub-skill '{args.skill}' already exists in package", file=sys.stderr)
+        print(f"Error: sub-skill '{skill_name}' already exists in package", file=sys.stderr)
         sys.exit(1)
 
     shutil.copytree(src, dest)
-    print(f"Copied {args.skill} -> sub/{args.skill}/")
+    print(f"Copied {skill_name} -> sub/{skill_name}/")
 
     # Remove original
     shutil.rmtree(src)
-    print(f"Removed original: {args.skill}/")
+    print(f"Removed original: {skill_name}/")
 
     # Update pack.md
     subs = scan_subs(package_dir)
@@ -175,19 +200,21 @@ def cmd_add(args):
 
 def cmd_remove(args):
     """Remove a sub-skill from a package and restore it to top-level."""
-    package_dir = SKILLS_DIR / args.package
-    sub_path = package_dir / "sub" / args.skill
-    dest = SKILLS_DIR / args.skill
+    package_name = validate_name(args.package, "package name")
+    skill_name = validate_name(args.skill, "skill name")
+    package_dir = safe_path(SKILLS_DIR, package_name)
+    sub_path = safe_path(package_dir, f"sub/{skill_name}")
+    dest = safe_path(SKILLS_DIR, skill_name)
 
     if not sub_path.exists():
-        print(f"Error: sub-skill '{args.skill}' not found in package", file=sys.stderr)
+        print(f"Error: sub-skill '{skill_name}' not found in package", file=sys.stderr)
         sys.exit(1)
     if dest.exists():
-        print(f"Error: top-level '{args.skill}' already exists", file=sys.stderr)
+        print(f"Error: top-level '{skill_name}' already exists", file=sys.stderr)
         sys.exit(1)
 
     shutil.move(str(sub_path), str(dest))
-    print(f"Restored {args.skill} -> skills/{args.skill}/")
+    print(f"Restored {skill_name} -> skills/{skill_name}/")
 
     # Update pack.md
     subs = scan_subs(package_dir)
