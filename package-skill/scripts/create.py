@@ -2,14 +2,13 @@
 """Skill Packager — create, add, remove sub-skills in a package. Use update.py for scan/pack.md."""
 
 import argparse
-import os
 import re
 import shutil
 import sys
 from pathlib import Path
 
-# Resolve skills directory from env or default to this script's parent
-SKILLS_DIR = Path(os.environ.get("SKILLS_DIR", str(Path(__file__).resolve().parents[2]))).resolve()
+# Resolve skills directory: this script lives at skills/<package-skill>/scripts/
+SKILLS_DIR = Path(__file__).resolve().parents[2]
 
 # Allowed name pattern: alphanumeric, hyphens, underscores only
 SAFE_NAME_RE = re.compile(r'^[a-zA-Z0-9_-]+$')
