@@ -7,7 +7,7 @@ import shutil
 import sys
 from pathlib import Path
 
-SKILLS_DIR = Path(__file__).resolve().parents[2]  # skills/ directory (parent of package-skill/)
+SKILLS_DIR = Path(__file__).resolve().parents[3]  # skills/ directory (repo root → skills/)
 
 
 def parse_frontmatter(text: str) -> dict:
