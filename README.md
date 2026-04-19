@@ -26,10 +26,11 @@ The agent sees only one skill at the top level. When triggered, it reads `pack.m
 
 ## Installation
 
-Copy or clone into your agent's skills directory:
+Clone and copy the skill directory:
 
 ```bash
-cp -r package-skill/ /path/to/skills/
+git clone https://github.com/aiguozhi123456/package-skill.git
+cp -r package-skill/package-skill/ /path/to/skills/
 ```
 
 Or with [ClawHub](https://clawhub.ai):
