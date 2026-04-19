@@ -32,10 +32,10 @@ Copy or clone into your agent's skills directory:
 cp -r package-skill/ /path/to/skills/
 ```
 
-Or with [ClawHub](https://github.com/nanobot-gpt/clawhub):
+Or with [ClawHub](https://clawhub.ai):
 
 ```bash
-nanobot skill install package-skill
+npx clawhub install package-skill
 ```
 
 ## Usage
